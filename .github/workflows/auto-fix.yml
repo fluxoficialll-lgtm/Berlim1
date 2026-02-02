@@ -1,0 +1,83 @@
+
+name: 🚀 Deploy Site (Zip)
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy-zip:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 📦 Processar Atualização (ZIP)
+        run: |
+          # Configurar Git
+          git config --global user.name "Flux Deployer"
+          git config --global user.email "actions@github.com"
+          
+          # 1. Encontrar arquivo ZIP
+          ZIP_FILE=$(find . -maxdepth 1 -name "*.zip" -print -quit)
+          
+          if [ -z "$ZIP_FILE" ]; then
+            echo "✅ Nenhum arquivo .zip encontrado. Nada a fazer."
+            exit 0
+          fi
+          
+          echo "Found update package: $ZIP_FILE"
+          
+          # 2. Preparar extração
+          rm -rf temp_extract
+          mkdir -p temp_extract
+          
+          # 3. Extrair
+          unzip -o "$ZIP_FILE" -d temp_extract
+          
+          # 4. Remover o ZIP original
+          git rm --ignore-unmatch "$ZIP_FILE"
+          rm -f "$ZIP_FILE"
+
+          # --- CORREÇÃO DE SEGURANÇA E ESTRUTURA ---
+          echo "🛡️ Limpando configurações de workflow do pacote..."
+          find temp_extract -name ".github" -type d -exec rm -rf {} +
+          
+          # 5. Mover arquivos extraídos para a raiz (Flattening)
+          # Procura onde o package.json está para definir a raiz real do projeto no ZIP
+          REAL_ROOT=$(find temp_extract -name "package.json" -exec dirname {} \; | head -n 1)
+          
+          if [ -n "$REAL_ROOT" ]; then
+             echo "📂 Raiz do projeto detectada em: $REAL_ROOT"
+             cp -rf "$REAL_ROOT"/. .
+          else
+             echo "⚠️ package.json não encontrado no ZIP. Copiando tudo para a raiz."
+             cp -rf temp_extract/. .
+          fi
+          
+          # Limpeza
+          rm -rf temp_extract
+          
+          # 6. Garantir permissões nos scripts de build
+          if [ -f "render-build.sh" ]; then
+             chmod +x render-build.sh
+             git update-index --chmod=+x render-build.sh 2>/dev/null || true
+          fi
+          
+          # 7. Commit e Push
+          git add .
+          
+          if ! git diff-index --quiet HEAD --; then
+             git commit -m "🚀 Deploy via ZIP Upload (Resilient Flattening)"
+             git push
+             echo "✅ Código atualizado e sincronizado na raiz."
+          else
+             echo "✅ Nenhuma mudança detectada nos arquivos extraídos."
+          fi
+          
