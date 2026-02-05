@@ -8,8 +8,7 @@ import { db } from '@/database';
 import { MarketplaceItem, Comment, ChatMessage } from '../types';
 import { useModal } from '../components/ModalSystem';
 
-// Modular Components
-import { ProductHeader } from '../features/marketplace/components/details/ProductHeader';
+// Componentes Modulares
 import { ProductMediaGallery } from '../features/marketplace/components/details/ProductMediaGallery';
 import { ProductInfo } from '../features/marketplace/components/details/ProductInfo';
 import { ProductSellerCard } from '../features/marketplace/components/details/ProductSellerCard';
@@ -21,18 +20,20 @@ import { CommentSheet } from '../components/ui/comments/CommentSheet';
 export const ProductDetails: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const { showConfirm } = useModal();
+  const { showConfirm, showAlert } = useModal();
   const [item, setItem] = useState<MarketplaceItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSeller, setIsSeller] = useState(false);
   
-  // Advanced Comment System State
+  // State para o novo menu de opções
+  const [isOptionsOpen, setIsOptionsOpen] = useState(false);
+
+  // State do sistema de comentários
   const [questions, setQuestions] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState('');
   const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
   const [replyingTo, setReplyingTo] = useState<{ id: string, username: string } | null>(null);
 
-  // Zoom State
   const [zoomedMedia, setZoomedMedia] = useState<{ url: string, type: 'image' | 'video' } | null>(null);
   
   const currentUser = authService.getCurrentUser();
@@ -40,17 +41,16 @@ export const ProductDetails: React.FC = () => {
 
   const loadData = useCallback(() => {
     if (id) {
-        const foundItem = marketplaceService.getItemById(id);
-        if (foundItem) {
-          setItem(foundItem);
-          setQuestions(foundItem.comments || []);
-          
-          if (currentUser && (currentUser.email === foundItem.sellerId || currentUser.id === foundItem.sellerId)) {
-              setIsSeller(true);
-          }
+      const foundItem = marketplaceService.getItemById(id);
+      if (foundItem) {
+        setItem(foundItem);
+        setQuestions(foundItem.comments || []);
+        if (currentUser && (currentUser.email === foundItem.sellerId || currentUser.id === foundItem.sellerId)) {
+          setIsSeller(true);
         }
       }
-      setLoading(false);
+    }
+    setLoading(false);
   }, [id, currentUser]);
 
   useEffect(() => {
@@ -59,123 +59,126 @@ export const ProductDetails: React.FC = () => {
     return () => unsub();
   }, [loadData]);
 
-  const handleChat = (e: React.MouseEvent) => {
-      e.stopPropagation(); 
-      if (!currentUser || !item) return;
-      if (isSeller) return;
-
-      try {
-          const chatId = chatService.getPrivateChatId(currentUser.email, item.sellerId);
-          const contextMsg: ChatMessage = {
-              id: Date.now(),
-              text: `Olá! Tenho interesse neste produto.`,
-              type: 'sent',
-              contentType: 'text',
-              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              status: 'sent',
-              senderEmail: currentUser.email,
-              senderAvatar: currentUser.profile?.photoUrl,
-              senderName: currentUser.profile?.name || 'Comprador',
-              product: {
-                  id: item.id,
-                  title: item.title,
-                  price: item.price,
-                  image: item.image
-              }
-          };
-          chatService.sendMessage(chatId, contextMsg);
-          navigate(`/chat/${chatId}`);
-      } catch (err) {
-          console.error(err);
+  // Efeito para fechar o menu de opções ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      // Fechar se o clique não for no botão do menu ou dentro do próprio menu
+      if (isOptionsOpen && !(event.target as HTMLElement).closest('.header-btn, .options-menu')) {
+        setIsOptionsOpen(false);
       }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOptionsOpen]);
+
+  const handleChat = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!currentUser || !item || isSeller) return;
+
+    try {
+      const chatId = await chatService.startChatWithProductContext(item.sellerId, item.id);
+      navigate(`/chat/${chatId}`);
+    } catch (err) {
+      console.error(err);
+      showAlert("Erro", "Não foi possível iniciar a conversa. Tente novamente.");
+    }
   };
 
+  const handleDelete = async () => {
+    setIsOptionsOpen(false);
+    const confirmed = await showConfirm("Excluir Anúncio", "Tem certeza que deseja excluir permanentemente?", "Excluir", "Cancelar");
+    if (confirmed && id) {
+      marketplaceService.deleteItem(id);
+      navigate('/marketplace', { replace: true });
+    }
+  };
+
+  const handleReport = () => {
+    setIsOptionsOpen(false);
+    showAlert("Anúncio Reportado", "Agradecemos sua colaboração. Nossa equipe analisará o anúncio.");
+  };
+
+  // Demais handlers (comentários, navegação, etc.)...
   const handleSendQuestion = () => {
       if (!commentText.trim() || !item || !currentUser) return;
-      
       if (replyingTo) {
-          // Lógica de resposta encadeada (Thread)
-          const success = marketplaceService.addReply(item.id, replyingTo.id, commentText, currentUser);
-          if (success) setReplyingTo(null);
+          marketplaceService.addReply(item.id, replyingTo.id, commentText, currentUser);
+          setReplyingTo(null);
       } else {
-          // Pergunta direta (Nível 0)
           marketplaceService.addComment(item.id, commentText, currentUser);
       }
       setCommentText('');
   };
-
-  const handleDeleteQuestion = async (commentId: string) => {
+  const handleDeleteQuestion = (commentId: string) => {
       if (!item) return;
-      if (await showConfirm("Excluir pergunta", "Deseja excluir sua pergunta?", "Excluir", "Cancelar")) {
-          await marketplaceService.deleteComment(item.id, commentId);
-      }
+      showConfirm("Excluir pergunta", "Deseja excluir sua pergunta?", "Excluir", "Cancelar")
+          .then(ok => ok && marketplaceService.deleteComment(item.id, commentId));
   };
-
-  const handleLikeQuestion = (commentId: string) => {
-      if (!item) return;
-      marketplaceService.toggleCommentLike(item.id, commentId);
-  };
-
-  const handleDelete = async () => {
-      const confirmed = await showConfirm(
-          "Excluir Anúncio",
-          "Tem certeza que deseja excluir este anúncio permanentemente?",
-          "Excluir",
-          "Cancelar"
-      );
-      if (confirmed && id) {
-          marketplaceService.deleteItem(id);
-          navigate('/marketplace');
-      }
-  };
-
-  const navigateToStore = () => {
-      if (!item) return;
-      navigate(`/user/${item.sellerName}`, { state: { activeTab: 'products' } });
-  };
-
+  const navigateToStore = () => item && navigate(`/user/${item.sellerName}`, { state: { activeTab: 'products' } });
   const mediaItems = useMemo(() => {
       if (!item) return [];
       const media: { type: 'image' | 'video', url: string }[] = [];
       if (item.video) media.push({ type: 'video', url: item.video });
       if (item.image) media.push({ type: 'image', url: item.image });
-      if (item.images) {
-          item.images.forEach(img => media.push({ type: 'image', url: img }));
-      }
-      return media.filter((v, i, a) => a.findIndex(t => t.url === v.url) === i);
+      if (item.images) item.images.forEach(img => media.push({ type: 'image', url: img }));
+      return [...new Map(media.map(m => [m.url, m])).values()];
   }, [item]);
 
-  if (loading || !item) return <div className="min-h-screen bg-[#0c0f14] flex items-center justify-center text-white">Carregando...</div>;
+  if (loading || !item) return <div className="min-h-screen bg-[#0c0f14] flex items-center justify-center text-white"><i className="fa-solid fa-circle-notch fa-spin text-2xl"></i></div>;
 
   return (
     <div className="min-h-screen bg-[#0c0f14] text-white font-['Inter'] flex flex-col relative pb-[90px]">
       <style>{`
-        .product-container { padding: 0; position: relative; z-index: 10; width: 100%; max-width: 600px; margin: 0 auto; }
+        .product-container { padding: 0; position: relative; z-index: 1; width: 100%; max-width: 600px; margin: 0 auto; }
         .details-wrapper { background: #0c0f14; border-top-left-radius: 20px; border-top-right-radius: 20px; margin-top: -20px; position: relative; z-index: 5; padding: 25px 20px; box-shadow: 0 -10px 30px rgba(0,0,0,0.5); }
-        .product-title { font-size: 22px; font-weight: 700; line-height: 1.3; margin-bottom: 10px; color: #fff; }
-        .product-price { font-size: 26px; font-weight: 800; color: #00ff82; margin-bottom: 15px; letter-spacing: -0.5px; }
-        .badges-row { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-        .badge-item { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 6px 12px; border-radius: 8px; font-size: 12px; color: #ccc; display: flex; align-items: center; gap: 6px; }
-        .badge-item i { color: #00c2ff; }
+        
+        /* Novo Cabeçalho Flutuante */
+        .floating-header { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; padding: 16px; z-index: 20; background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent); }
+        .header-btn { width: 44px; height: 44px; border-radius: 50%; background: rgba(0,0,0,0.3); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.1); color: white; display: flex; align-items: center; justify-content: center; font-size: 18px; cursor: pointer; transition: background-color 0.2s; }
+        .header-btn:hover { background: rgba(0,0,0,0.5); }
+
+        /* Novo Menu de Opções */
+        .options-menu { position: absolute; top: 70px; right: 16px; background: #1c1f24; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 4px 20px rgba(0,0,0,0.4); z-index: 30; overflow: hidden; animation: fadeIn 0.2s ease-out; }
+        .options-menu-item { display: flex; align-items: center; gap: 10px; padding: 12px 20px; background: none; border: none; color: #E0E0E0; text-align: left; font-size: 14px; cursor: pointer; width: 100%; transition: background-color 0.2s; }
+        .options-menu-item:not(:last-child) { border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .options-menu-item:hover { background: rgba(255,255,255,0.05); }
+        .options-menu-item.danger { color: #ff4d4d; }
+        .options-menu-item i { font-size: 14px; width: 20px; text-align: center; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Estilos existentes... */
         .seller-card { background: rgba(20,20,25,0.6); border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; padding: 15px; margin-bottom: 25px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: 0.2s; }
-        .seller-left { display: flex; align-items: center; gap: 12px; }
-        .seller-avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid #00c2ff; }
-        .seller-info h4 { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
-        .seller-info p { font-size: 12px; color: #888; }
-        .store-icon { color: #00c2ff; opacity: 0.5; }
-        .desc-section { margin-bottom: 30px; }
-        .section-header { font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; cursor: pointer; }
-        .desc-text { color: #ccc; font-size: 15px; line-height: 1.6; white-space: pre-wrap; font-weight: 300; }
-        .bottom-bar { position: fixed; bottom: 0; left: 0; width: 100%; background: rgba(12,15,20,0.95); backdrop-filter: blur(10px); padding: 16px 20px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; gap: 12px; align-items: center; z-index: 50; box-shadow: 0 -5px 20px rgba(0,0,0,0.5); }
-        .action-btn { flex: 1; padding: 14px; border-radius: 12px; font-weight: 700; font-size: 15px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; }
-        .btn-primary { background: #00c2ff; color: #000; box-shadow: 0 4px 15px rgba(0,194,255,0.3); }
-        .btn-secondary { background: rgba(255,255,255,0.1); color: #fff; max-width: 60px; font-size: 20px; }
-        .btn-danger { background: rgba(255,77,77,0.1); color: #ff4d4d; border: 1px solid rgba(255,77,77,0.3); }
         .qa-trigger-btn { width: 100%; padding: 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; color: #aaa; text-align: left; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; transition: 0.2s; }
-        .qa-trigger-btn:active { transform: scale(0.98); background: rgba(255,255,255,0.08); }
       `}</style>
 
-      <ProductHeader />
+      {/* -- NOVO CABEÇALHO -- */}
+      <header className="floating-header">
+          <button onClick={() => navigate(-1)} className="header-btn" aria-label="Voltar">
+              <i className="fa-solid fa-arrow-left"></i>
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); setIsOptionsOpen(!isOptionsOpen); }} className="header-btn" aria-label="Mais opções">
+              <i className="fa-solid fa-ellipsis-vertical"></i>
+          </button>
+      </header>
+
+      {isOptionsOpen && (
+          <div className="options-menu">
+              {isSeller ? (
+                  <>
+                      <button onClick={() => { setIsOptionsOpen(false); navigate(`/marketplace/edit/${id}`); }} className="options-menu-item">
+                          <i className="fa-solid fa-pencil"></i> Editar Anúncio
+                      </button>
+                      <button onClick={handleDelete} className="options-menu-item danger">
+                          <i className="fa-solid fa-trash-can"></i> Excluir
+                      </button>
+                  </>
+              ) : (
+                  <button onClick={handleReport} className="options-menu-item">
+                      <i className="fa-solid fa-flag"></i> Reportar
+                  </button>
+              )}
+          </div>
+      )}
 
       <div className="product-container">
           <ProductMediaGallery 
@@ -191,15 +194,8 @@ export const ProductDetails: React.FC = () => {
                 category={item.category}
                 timestamp={item.timestamp}
               />
-
-              <ProductSellerCard 
-                sellerName={item.sellerName || 'Vendedor'}
-                sellerAvatar={item.sellerAvatar}
-                onClick={navigateToStore}
-              />
-
+              <ProductSellerCard sellerName={item.sellerName || 'Vendedor'} sellerAvatar={item.sellerAvatar} onClick={navigateToStore} />
               <ProductDescription description={item.description} />
-
               <button className="qa-trigger-btn" onClick={() => setIsCommentModalOpen(true)}>
                   <span className="font-bold text-sm"><i className="fa-regular fa-comments mr-2 text-[#00c2ff]"></i> Perguntas ({questions.length})</span>
                   <i className="fa-solid fa-chevron-right text-xs"></i>
@@ -207,33 +203,24 @@ export const ProductDetails: React.FC = () => {
           </div>
       </div>
 
-      <ProductBottomBar 
-        isSeller={isSeller}
-        onDelete={handleDelete}
-        onChat={handleChat}
-      />
-
-      <ProductLightbox 
-        media={zoomedMedia}
-        onClose={() => setZoomedMedia(null)}
-      />
-
+      <ProductBottomBar isSeller={isSeller} onDelete={handleDelete} onChat={handleChat} />
+      <ProductLightbox media={zoomedMedia} onClose={() => setZoomedMedia(null)} />
       <CommentSheet 
-          isOpen={isCommentModalOpen}
-          onClose={() => setIsCommentModalOpen(false)}
-          title={`Perguntas (${questions.length})`}
-          comments={questions}
-          commentText={commentText}
-          onCommentTextChange={setCommentText}
-          onSend={handleSendQuestion}
-          onLike={handleLikeQuestion}
-          onDelete={handleDeleteQuestion}
-          onUserClick={(u) => navigate(`/user/${u.replace('@', '')}`)}
-          currentUserId={currentUserId}
-          replyingTo={replyingTo}
-          onCancelReply={() => setReplyingTo(null)}
-          onReplyClick={(cid, user) => setReplyingTo({ id: cid, username: user })}
-          placeholder={isSeller ? "Responda a dúvida do cliente..." : "Escreva sua dúvida para o vendedor..."}
+        isOpen={isCommentModalOpen} 
+        onClose={() => setIsCommentModalOpen(false)} 
+        title={`Perguntas (${questions.length})`} 
+        comments={questions} 
+        commentText={commentText} 
+        onCommentTextChange={setCommentText} 
+        onSend={handleSendQuestion} 
+        onLike={(cid) => item && marketplaceService.toggleCommentLike(item.id, cid)} 
+        onDelete={handleDeleteQuestion} 
+        onUserClick={(u) => navigate(`/user/${u.replace('@', '')}`)} 
+        currentUserId={currentUserId} 
+        replyingTo={replyingTo} 
+        onCancelReply={() => setReplyingTo(null)} 
+        onReplyClick={(cid, user) => setReplyingTo({ id: cid, username: user })} 
+        placeholder={isSeller ? "Responda a dúvida..." : "Escreva sua dúvida..."} 
       />
     </div>
   );

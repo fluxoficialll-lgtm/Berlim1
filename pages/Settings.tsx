@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
 import { useModal } from '../components/ModalSystem';
 import { Footer } from '../components/layout/Footer';
+import { SettingItem } from '../components/settings/SettingItem';
 
 // Novos Componentes Modulares
 import { AccountGroup } from '../components/settings/AccountGroup';
@@ -117,7 +118,11 @@ export const Settings: React.FC = () => {
             onToggleAdult={handleToggleAdultContent}
         />
 
-        <GeneralGroup />
+        <div className="settings-group">
+            <h2>Geral</h2>
+            <SettingItem icon="fa-palette" label="Temas do Chat" onClick={() => navigate('/settings/chat-themes')} />
+            <GeneralGroup />
+        </div>
 
         <div className="logout-container">
             <button onClick={handleLogout} className="logout-btn">
