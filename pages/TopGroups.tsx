@@ -19,7 +19,8 @@ export const TopGroups: React.FC = () => {
 
   const handleTabChange = (newTab: 'public' | 'private' | 'vip') => {
       if (newTab === activeTab) return;
-      navigate(`/top-groups/${newTab}`);
+      // Corrigido: Usa replace para não adicionar ao histórico de navegação
+      navigate(`/top-groups/${newTab}`, { replace: true });
   };
 
   const handleGroupAction = (group: Group) => {
@@ -37,11 +38,8 @@ export const TopGroups: React.FC = () => {
   };
 
   const handleBack = () => {
-    if (window.history.state && window.history.state.idx > 0) {
-        navigate(-1);
-    } else {
-        navigate('/groups');
-    }
+    // Corrigido: Navega diretamente para a lista de grupos
+    navigate('/groups');
   };
 
   return (

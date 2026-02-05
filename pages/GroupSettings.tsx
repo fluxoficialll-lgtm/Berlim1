@@ -28,7 +28,8 @@ export const GroupSettings: React.FC = () => {
     }
 
     const handleBack = () => {
-        navigate(-1);
+        // Corrigido: Navega para a lista de grupos para evitar histórico indesejado.
+        navigate('/groups');
     };
 
     const NewBadge = () => (
