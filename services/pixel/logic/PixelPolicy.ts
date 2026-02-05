@@ -51,6 +51,6 @@ export const pixelPolicy = {
    * Define se o evento precisa de contexto de produto (ID do Grupo) para a trava de singleton.
    */
   requiresContentContext: (eventName: string): boolean => {
-    return ['Lead', 'ViewContent', 'InitiateCheckout', 'Purchase', 'AddPaymentInfo', 'GalleryInteraction', 'PageView'].includes(eventName);
+    return ['Lead', 'ViewContent', 'InitiateCheckout', 'Purchase', 'AddPaymentInfo', 'GalleryInteraction'].includes(eventName);
   }
 };

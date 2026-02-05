@@ -24,7 +24,17 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+
+// Helper function to parse command-line arguments
+const getArgValue = (argName) => {
+  const argIndex = process.argv.indexOf(argName);
+  return argIndex !== -1 && process.argv.length > argIndex + 1 ? process.argv[argIndex + 1] : null;
+};
+
+// Determine port, giving priority to CLI arg, then .env, then default
+const cliPort = getArgValue('--port');
+const PORT = cliPort || process.env.PORT || 3000;
+
 const httpServer = http.createServer(app);
 
 // 1. Inicialização da Infraestrutura e Socket
