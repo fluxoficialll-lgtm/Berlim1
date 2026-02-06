@@ -32,6 +32,7 @@ export const useReels = () => {
   const currentUserId = currentUser?.id;
 
   const loadReels = useCallback(async () => {
+    try {
       const userEmail = authService.getCurrentUserEmail();
       const allowAdult = localStorage.getItem('settings_18_plus') === 'true';
       let videoPosts: Post[] = [];
@@ -48,6 +49,10 @@ export const useReels = () => {
           }
       }
       setReels(videoPosts);
+    } catch (error) {
+        console.error("Failed to load reels, reloading.", error);
+        loadReels();
+    }
   }, [id, navState?.authorId]);
 
   const toggleReadMore = (reelId: string, e: React.MouseEvent) => {
@@ -88,7 +93,9 @@ export const useReels = () => {
         }
     });
 
-    return () => unsubscribe();
+    return () => {
+        unsubscribe();
+    };
   }, [isCommentModalOpen, activeReelId]);
 
   useEffect(() => {
