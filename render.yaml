@@ -1,13 +1,7 @@
 services:
   - type: web
-    name: flux-platform
+    name: berlim2
     env: node
     plan: free
-    rootDir: .
-    buildCommand: chmod +x render-build.sh && ./render-build.sh
-    startCommand: npm start
-    envVars:
-      - key: NODE_VERSION
-        value: 20.11.0
-      - key: NODE_ENV
-        value: production
+    buildCommand: "./render-build.sh"
+    startCommand: "node server.js"
