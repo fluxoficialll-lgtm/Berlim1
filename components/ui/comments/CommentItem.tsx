@@ -26,7 +26,6 @@ export const CommentItem: React.FC<CommentItemProps> = ({
 
     const avatarSize = depth === 0 ? 'w-8 h-8' : 'w-6 h-6';
     
-    // IMPORTANTE: Só mostramos respostas se estivermos no nível 0.
     const canShowReplies = depth === 0 && comment.replies && comment.replies.length > 0;
     const hasMoreReplies = comment.replies && visibleCount < comment.replies.length;
 
