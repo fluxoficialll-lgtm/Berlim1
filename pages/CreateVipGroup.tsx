@@ -1,17 +1,24 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { groupService } from '../services/groupService';
-import { authService } from '../services/authService';
-import { postService } from '../services/postService';
-import { Group, VipMediaItem } from '../types';
-import { PixelSettingsModal } from '../components/groups/PixelSettingsModal';
-import { AccessTypeModal } from '../components/groups/AccessTypeModal';
-import { CurrencySelectorModal, CurrencyType } from '../components/groups/CurrencySelectorModal';
-import { ProviderSelectorModal } from '../components/groups/ProviderSelectorModal';
-import { ImageCropModal } from '../components/ui/ImageCropModal';
-import { GATEWAY_CURRENCIES, DEFAULT_CURRENCY_FOR_GATEWAY } from '../services/gatewayConfig';
-import { UploadProgressCard } from '../features/groups/components/platform/UploadProgressCard';
+import { groupService } from '../../services/groupService';
+import { authService } from '../../services/authService';
+import { postService } from '../../services/postService';
+import { Group, VipMediaItem } from '../../types';
+import { PixelSettingsModal } from '../../components/groups/PixelSettingsModal';
+import { AccessTypeModal } from '../../components/groups/AccessTypeModal';
+import { CurrencySelectorModal, CurrencyType } from '../../components/groups/CurrencySelectorModal';
+import { ProviderSelectorModal } from '../../components/groups/ProviderSelectorModal';
+import { ImageCropModal } from '../../components/ui/ImageCropModal';
+import { GATEWAY_CURRENCIES, DEFAULT_CURRENCY_FOR_GATEWAY } from '../../services/gatewayConfig';
+import { UploadProgressCard } from '../../features/groups/components/platform/UploadProgressCard';
+import { VipHeader } from '../../features/groups/components/create-vip/VipHeader';
+import { VipCover } from '../../features/groups/components/create-vip/VipCover';
+import { VipInfo } from '../../features/groups/components/create-vip/VipInfo';
+import { VipGallery } from '../../features/groups/components/create-vip/VipGallery';
+import { VipDoorCopy } from '../../features/groups/components/create-vip/VipDoorCopy';
+import { VipPricing } from '../../features/groups/components/create-vip/VipPricing';
+import { VipMarketing } from '../../features/groups/components/create-vip/VipMarketing';
 
 export const CreateVipGroup: React.FC = () => {
   const navigate = useNavigate();
@@ -357,13 +364,7 @@ export const CreateVipGroup: React.FC = () => {
         .add-pixel-btn:hover { background: rgba(255, 215, 0, 0.1); }
       `}</style>
 
-      <header>
-        <button onClick={handleBack}><i className="fa-solid fa-arrow-left"></i></button>
-        <div className="absolute left-1/2 -translate-x-1/2 w-[60px] h-[60px] bg-white/5 rounded-2xl flex justify-center items-center z-20 cursor-pointer shadow-[0_0_20px_rgba(0,194,255,0.3),inset_0_0_20px_rgba(0,194,255,0.08)]" onClick={() => navigate('/feed')}>
-             <div className="absolute w-[40px] h-[22px] rounded-[50%] border-[3px] border-[#00c2ff] rotate-[25deg]"></div>
-             <div className="absolute w-[40px] h-[22px] rounded-[50%] border-[3px] border-[#00c2ff] -rotate-[25deg]"></div>
-        </div>
-      </header>
+      <VipHeader onBack={handleBack} />
 
       <main>
         <form id="groupCreationForm" onSubmit={handleSubmit}>
@@ -376,130 +377,39 @@ export const CreateVipGroup: React.FC = () => {
                 </div>
             )}
 
-            <div className="cover-upload-container">
-                <label htmlFor="coverImageInput" className="cover-preview">
-                    {coverImage ? <img src={coverImage} alt="Cover" /> : <i className="fa-solid fa-crown cover-icon"></i>}
-                </label>
-                <label htmlFor="coverImageInput" className="cover-label">Capa Principal</label>
-                <input type="file" id="coverImageInput" accept="image/*" style={{display: 'none'}} onChange={handleCoverChange} />
-            </div>
-
-            <div className="form-group">
-                <label htmlFor="groupName">Nome do Grupo</label>
-                <input type="text" id="groupName" value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="Ex: Comunidade Flux Pro" required />
-            </div>
-            
-            <div className="form-group">
-                <label htmlFor="groupDescription">Descrição</label>
-                <textarea id="groupDescription" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Sobre o que é este grupo?"></textarea>
-            </div>
-
-            <div className="vip-door-section">
-                <div className="section-title"><i className="fa-solid fa-door-open"></i> Galeria da Porta VIP</div>
-                <div className="flex flex-wrap gap-2.5 mb-4">
-                    {vipMediaItems.map((item, idx) => (
-                        <div key={idx} className="media-preview-item animate-fade-in">
-                            {item.type === 'video' ? <video src={item.url} /> : <img src={item.url} alt={`Preview ${idx}`} />}
-                            
-                            <div className="media-controls-overlay">
-                                <div className="flex gap-1">
-                                    <button 
-                                        type="button"
-                                        onClick={() => moveVipMediaItem(idx, 'left')}
-                                        disabled={idx === 0}
-                                        className="reorder-btn"
-                                    >
-                                        <i className="fa-solid fa-chevron-left"></i>
-                                    </button>
-                                    <button 
-                                        type="button"
-                                        onClick={() => moveVipMediaItem(idx, 'right')}
-                                        disabled={idx === vipMediaItems.length - 1}
-                                        className="reorder-btn"
-                                    >
-                                        <i className="fa-solid fa-chevron-right"></i>
-                                    </button>
-                                </div>
-                                <button type="button" className="remove-media-btn-new" onClick={() => removeMediaItem(idx)}>
-                                    <i className="fa-solid fa-trash"></i>
-                                </button>
-                            </div>
-
-                            <div className="absolute bottom-1 left-1 bg-black/60 text-[7px] font-black text-white px-1 py-0.5 rounded border border-white/5">
-                                #{idx + 1}
-                            </div>
-                        </div>
-                    ))}
-                    {vipMediaItems.length < 10 && (
-                        <label htmlFor="vipMediaInput" className="add-media-btn">
-                            <i className="fa-solid fa-plus"></i>
-                            <span>Adicionar</span>
-                        </label>
-                    )}
-                    <input type="file" id="vipMediaInput" accept="image/*,video/*" multiple style={{display:'none'}} onChange={handleVipMediaChange} />
-                </div>
-
-                <div className="form-group">
-                    <label htmlFor="vipCopyright">Texto de Venda</label>
-                    <textarea id="vipCopyright" value={vipDoorText} onChange={(e) => setVipDoorText(e.target.value)} placeholder="Copy persuasiva..."></textarea>
-                </div>
-
-                <div className="form-group">
-                    <label htmlFor="vipButtonText">Texto do Botão (Opcional)</label>
-                    <input type="text" id="vipButtonText" value={vipButtonText} onChange={(e) => setVipButtonText(e.target.value)} placeholder="Ex: Assinar (Padrão: COMPRAR AGORA)" maxLength={20} />
-                </div>
-            </div>
-            
-            <div className="price-group">
-                <label>Venda e Acesso</label>
-
-                <div className="selector-trigger" onClick={() => setIsProviderModalOpen(true)}>
-                    <div className="flex flex-col text-left">
-                        <span className="label">Escolher provedor:</span>
-                        <span className="value">
-                            <i className="fa-solid fa-wallet"></i>
-                            {getProviderLabel()}
-                        </span>
-                    </div>
-                    <i className="fa-solid fa-chevron-right text-[#FFD700]"></i>
-                </div>
-                
-                <div className="selector-trigger" onClick={() => setIsAccessModalOpen(true)}>
-                    <div className="flex flex-col text-left">
-                        <span className="label">Tipo de acesso:</span>
-                        <span className="value">
-                            <i className={`fa-solid ${accessType === 'lifetime' ? 'fa-infinity' : accessType === 'temporary' ? 'fa-calendar-days' : 'fa-ticket'}`}></i>
-                            {getAccessTypeLabel()}
-                        </span>
-                    </div>
-                    <i className="fa-solid fa-chevron-right text-[#FFD700]"></i>
-                </div>
-
-                <div className="selector-trigger" onClick={() => setIsCurrencyModalOpen(true)}>
-                    <div className="flex flex-col text-left">
-                        <span className="label">Moeda para cobrança:</span>
-                        <span className="value">
-                            <span className="curr-sym">{getCurrencySymbol()}</span>
-                            {currency}
-                        </span>
-                    </div>
-                    <i className="fa-solid fa-chevron-right text-[#FFD700]"></i>
-                </div>
-
-                <div className="price-input-container">
-                    <span>{getCurrencySymbol()}</span>
-                    <input type="text" value={price} onChange={handlePriceChange} placeholder="0,00" required />
-                </div>
-            </div>
-
-            <div className="vip-door-section">
-                <div className="section-title"><i className="fa-solid fa-rocket"></i> Marketing Avançado</div>
-                <button type="button" className="add-pixel-btn" onClick={() => setIsPixelModalOpen(true)}>
-                    <i className="fa-solid fa-plus-circle"></i>
-                    {pixelId ? 'PIXEL CONFIGURADO' : 'ADICIONAR PIXEL'}
-                </button>
-                {pixelId && <p className="text-[10px] text-[#00ff82] text-center mt-2 font-bold uppercase tracking-widest"><i className="fa-solid fa-check"></i> Meta Pixel Ativo</p>}
-            </div>
+            <VipCover coverImage={coverImage} onCoverChange={handleCoverChange} />
+            <VipInfo 
+              groupName={groupName} 
+              onGroupNameChange={(e) => setGroupName(e.target.value)} 
+              description={description} 
+              onDescriptionChange={(e) => setDescription(e.target.value)} 
+            />
+            <VipGallery 
+              vipMediaItems={vipMediaItems} 
+              onVipMediaChange={handleVipMediaChange} 
+              onMoveVipMediaItem={moveVipMediaItem} 
+              onRemoveMediaItem={removeMediaItem} 
+            />
+            <VipDoorCopy 
+              vipDoorText={vipDoorText} 
+              onVipDoorTextChange={(e) => setVipDoorText(e.target.value)} 
+              vipButtonText={vipButtonText} 
+              onVipButtonTextChange={(e) => setVipButtonText(e.target.value)} 
+            />
+            <VipPricing 
+              selectedProviderId={selectedProviderId} 
+              onProviderClick={() => setIsProviderModalOpen(true)} 
+              getProviderLabel={getProviderLabel} 
+              accessType={accessType} 
+              onAccessClick={() => setIsAccessModalOpen(true)} 
+              getAccessTypeLabel={getAccessTypeLabel} 
+              currency={currency} 
+              onCurrencyClick={() => setIsCurrencyModalOpen(true)} 
+              getCurrencySymbol={getCurrencySymbol} 
+              price={price} 
+              onPriceChange={handlePriceChange} 
+            />
+            <VipMarketing pixelId={pixelId} onPixelClick={() => setIsPixelModalOpen(true)} />
 
             <button type="submit" className="common-button" disabled={isCreating || isUploading}>
                 {isCreating || isUploading ? <i className="fa-solid fa-circle-notch fa-spin mr-2"></i> : "Criar Grupo"}
