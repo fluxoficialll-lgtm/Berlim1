@@ -1,9 +1,11 @@
-import React from 'react';
+
+import React, { useState } from 'react';
 import { useReels } from '../hooks/useReels';
 import { ReelItem } from '../features/reels/components/ReelItem';
-import { CommentSheet } from '../components/ui/comments/CommentSheet';
+import { ReelComments } from '../features/reels/components/ReelComments';
 import { authService } from '../services/authService';
 import ReelsErrorBoundary from '../features/reels/components/ReelsErrorBoundary';
+import { Post } from '../types';
 
 export const Reels: React.FC = () => {
   const {
@@ -12,25 +14,24 @@ export const Reels: React.FC = () => {
     reels,
     activeReelIndex,
     expandedReels,
-    isCommentModalOpen,
-    setIsCommentModalOpen,
-    currentComments,
-    commentText,
-    setCommentText,
-    replyingTo,
-    setReplyingTo,
-    currentUserId,
     toggleReadMore,
     handleLike,
     handleDeleteReel,
-    handleCommentClick,
-    handleSendComment,
-    handleDeleteComment,
-    handleCommentLike,
     handleShare,
     reportWatchTime,
     handleCtaClick
   } = useReels();
+  
+  const [activeReel, setActiveReel] = useState<Post | null>(null);
+  const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
+
+  const handleCommentClick = (reelId: string) => {
+      const reel = reels.find(r => r.id === reelId);
+      if (reel) {
+          setActiveReel(reel);
+          setIsCommentModalOpen(true);
+      }
+  }
 
   return (
     <ReelsErrorBoundary>
@@ -44,24 +45,7 @@ export const Reels: React.FC = () => {
         #reelsContent { height: 100%; width: 100%; overflow-y: scroll; scroll-snap-type: y mandatory; scroll-behavior: smooth; overscroll-behavior: none; }
         #reelsContent::-webkit-scrollbar { display: none; }
         .reel-container-wrapper { height: 100%; width: 100%; scroll-snap-align: start; scroll-snap-stop: always; position: relative; }
-        .reel { width: 100%; height: 100%; position: relative; background: #111; display: flex; justify-content: center; align-items: center; }
-        .reel-actions { position: absolute; right: 15px; bottom: 120px; display: flex; flex-direction: column; gap: 20px; z-index: 10; align-items: center; }
-        .reel-actions button { background: none; border: none; color: #fff; display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 28px; cursor: pointer; text-shadow: 0 2px 5px rgba(0,0,0,0.5); }
-        .reel-actions span { font-size: 12px; font-weight: 600; }
-        .liked-heart { color: #ff4d4d; animation: pop 0.3s ease; }
-        .reel-desc-overlay { position: absolute; bottom: 0; left: 0; width: 100%; padding: 20px; padding-bottom: 40px; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); display: flex; flex-direction: column; gap: 8px; z-index: 5; pointer-events: none; }
-        .reel-desc-overlay > * { pointer-events: auto; }
-        .reel-username { font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 10px; cursor: pointer; }
-        .adult-badge { background: #ff4d4d; font-size: 10px; padding: 2px 6px; border-radius: 4px; }
-        .sponsored-badge { background: rgba(255,255,255,0.2); font-size: 10px; padding: 2px 6px; border-radius: 4px; }
-        .reel-title { font-size: 14px; line-height: 1.4; max-width: 85%; }
-        .reel-read-more { color: #aaa; font-weight: 600; cursor: pointer; margin-left: 5px; }
-        .reel-group-btn { display: flex; align-items: center; gap: 8px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; color: #fff; width: fit-content; cursor: pointer; margin-bottom: 5px; transition: all 0.2s; }
-        .reel-group-btn:hover { transform: scale(1.05); }
-        .video-error { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: #aaa; }
-        .retry-btn { margin-top: 10px; padding: 8px 16px; background: #333; border: 1px solid #555; color: #fff; border-radius: 8px; cursor: pointer; }
-        @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
-      `}</style>
+        `}</style>
       
       <div className="view-buttons-container">
           <button className="view-btn" onClick={() => navigate('/feed')}>Feed</button>
@@ -104,21 +88,10 @@ export const Reels: React.FC = () => {
         )}
       </div>
 
-      <CommentSheet 
-          isOpen={isCommentModalOpen}
-          onClose={() => setIsCommentModalOpen(false)}
-          title={`Comentários (${currentComments.length})`}
-          comments={currentComments}
-          commentText={commentText}
-          onCommentTextChange={setCommentText}
-          onSend={handleSendComment}
-          onLike={handleCommentLike}
-          onDelete={handleDeleteComment}
-          onUserClick={(u) => navigate(`/user/${u.replace('@', '')}`)}
-          currentUserId={currentUserId}
-          replyingTo={replyingTo}
-          onCancelReply={() => setReplyingTo(null)}
-          onReplyClick={(cid, user) => setReplyingTo({ id: cid, username: user })}
+      <ReelComments
+        reel={activeReel}
+        isOpen={isCommentModalOpen}
+        onClose={() => setIsCommentModalOpen(false)}
       />
       </div>
     </ReelsErrorBoundary>
