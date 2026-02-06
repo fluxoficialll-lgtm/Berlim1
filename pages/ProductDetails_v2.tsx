@@ -11,7 +11,6 @@ import { useMarketplaceComments } from '@/hooks/useMarketplaceComments';
 // Componentes Modulares
 import '@/features/marketplace/components/details/ProductDetails.css';
 import { ProductHeader } from '@/features/marketplace/components/details/ProductHeader';
-import { ProductMediaGallery } from '@/features/marketplace/components/details/ProductMediaGallery';
 import { ProductInfo } from '@/features/marketplace/components/details/ProductInfo';
 import { ProductSellerCard } from '@/features/marketplace/components/details/ProductSellerCard';
 import { ProductDescription } from '@/features/marketplace/components/details/ProductDescription';
@@ -110,9 +109,15 @@ export const ProductDetailsV2: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#0c0f14] text-white font-['Inter'] flex flex-col relative pb-[90px]">
-      <ProductHeader isSeller={isSeller} productId={item.id} onDelete={handleDelete} onReport={() => showAlert("Reportado", "Obrigado!")}/>
-      <div className="product-container">
-        <ProductMediaGallery mediaItems={mediaItems} onMediaClick={(media) => setZoomedMedia(media)}/>
+      <ProductHeader 
+        isSeller={isSeller} 
+        productId={item.id} 
+        onDelete={handleDelete} 
+        onReport={() => showAlert("Reportado", "Obrigado!")} 
+        mediaItems={mediaItems}
+        onMediaClick={(media) => setZoomedMedia(media)}
+      />
+      <div className="product-container -mt-16 relative z-10">
         <div className="details-wrapper">
           <ProductInfo title={item.title} price={item.price} location={item.location} category={item.category} timestamp={item.timestamp}/>
           <ProductSellerCard sellerName={item.sellerName || 'Vendedor'} sellerAvatar={item.sellerAvatar} onClick={navigateToStore} />
