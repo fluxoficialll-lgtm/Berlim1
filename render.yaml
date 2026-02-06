@@ -1,12 +1,9 @@
 services:
-  - type: static
-    name: flux-platform-frontend
-    env: static
-    rootDir: .
-    buildCommand: chmod +x render-build.sh && ./render-build.sh
-    publishPath: ./dist # Aponta para a pasta de build estático
-    pullRequestPreviewsEnabled: true
-    headers:
-      - path: /*
-        name: Cache-Control
-        value: no-cache
+  - type: web
+    name: flux-platform
+    env: node
+    buildCommand: "npm install && npm run build"
+    startCommand: "npm run start"
+    envVars:
+      - key: NODE_ENV
+        value: production
