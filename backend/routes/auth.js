@@ -54,8 +54,6 @@ router.post('/google', async (req, res) => {
                 name = payload['name'];
             } catch (err) {
                 console.warn("⚠️ Google Token Verify Failed:", err.message);
-                // No modo hibrido, se falhar o token real por config errada, geramos um mock
-                // apenas para não travar o desenvolvimento, mas logamos o erro.
             }
         }
 
@@ -65,7 +63,7 @@ router.post('/google', async (req, res) => {
             email = `guest_${googleId}@gmail.com`;
         }
 
-        // 2. Operações de Banco de Dados (Onde o erro ENOTFOUND ocorria)
+        // 2. Operações de Banco de Dados
         let user;
         try {
             user = await dbManager.users.findByGoogleId(googleId);
@@ -119,8 +117,10 @@ router.post('/google', async (req, res) => {
 
 router.post('/change-password', async (req, res) => {
     try {
-        const { email, currentPassword, newPassword } = req.body;
-        const user = await dbManager.users.findByEmail(email);
+        // O userId virá do token de autenticação (ex: req.user.id)
+        const { userId, currentPassword, newPassword } = req.body; 
+        const user = await dbManager.users.findById(userId);
+
         if (user && user.password === currentPassword) {
             user.password = newPassword;
             await dbManager.users.update(user);
@@ -147,9 +147,11 @@ router.post('/reset-password', async (req, res) => {
 
 router.post('/sessions/revoke-others', async (req, res) => {
     try {
-        const { email } = req.body;
-        const user = await dbManager.users.findByEmail(email);
+        // O userId virá do token de autenticação (ex: req.user.id)
+        const { userId } = req.body; 
+        const user = await dbManager.users.findById(userId);
         if (user) {
+            // Lógica para invalidar outras sessões viria aqui
             res.json({ success: true });
         } else {
             res.status(404).json({ error: 'Usuário não encontrado' });

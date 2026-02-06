@@ -24,12 +24,11 @@ router.get('/search', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Novo handler GET para suportar SystemSyncWorker e verificação de status
-router.get('/update', async (req, res) => {
+// Rota para buscar um usuário pelo ID (UUID)
+router.get('/:userId', async (req, res) => {
     try {
-        const { email } = req.query;
-        if (!email) return res.status(400).json({ error: 'Email é obrigatório' });
-        const user = await dbManager.users.findByEmail(email);
+        const { userId } = req.params;
+        const user = await dbManager.users.findById(userId);
         if (user) {
             res.json({ user });
         } else {
@@ -38,15 +37,23 @@ router.get('/update', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.put('/update', async (req, res) => {
+// Rota para atualizar um usuário pelo ID (UUID)
+router.put('/:userId/update', async (req, res) => {
     try {
-        const { email, updates } = req.body;
-        const user = await dbManager.users.findByEmail(email);
+        const { userId } = req.params;
+        const { updates } = req.body;
+
+        // Idealmente, você verificaria aqui se o usuário autenticado (req.user.id)
+        // tem permissão para atualizar este usuário.
+
+        const user = await dbManager.users.findById(userId);
         if (user) {
             const updated = { ...user, ...updates };
             await dbManager.users.update(updated);
             res.json({ user: updated });
-        } else res.status(404).json({ error: 'Usuário não encontrado' });
+        } else {
+            res.status(404).json({ error: 'Usuário não encontrado' });
+        }
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

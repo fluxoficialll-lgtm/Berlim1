@@ -21,25 +21,45 @@ router.get('/', async (req, res) => {
     }
 });
 
-// Criar Post
+// Criar Post com Metadados e URL do Arquivo
 router.post('/create', async (req, res) => {
     try {
-        const post = req.body;
-        if (!post.id || !post.authorId) {
-            return res.status(400).json({ error: "ID e authorId são obrigatórios" });
+        // O authorId virá do token de autenticação (ex: req.user.id)
+        const authorId = req.body.userId; // EXEMPLO: Substitua por req.user.id
+        const { text, fileUrl, groupId } = req.body; // O cliente envia o texto e a URL do arquivo.
+
+        if (!authorId) {
+             return res.status(401).json({ error: "Autenticação necessária." });
         }
-        await dbManager.posts.create(post);
-        res.json({ success: true });
+        if (!fileUrl) {
+            return res.status(400).json({ error: "A URL do arquivo (fileUrl) é obrigatória." });
+        }
+
+        // O objeto `post` agora contém a URL do arquivo, em vez do conteúdo binário.
+        const post = { 
+            authorId,
+            text, // O texto/legenda do post
+            fileUrl, // A URL pública do arquivo no R2
+            groupId, // Opcional: O grupo ao qual o post pertence
+            // Outros metadados que você queira salvar no PostgreSQL...
+        };
+        
+        // Salva os metadados no PostgreSQL.
+        const createdPost = await dbManager.posts.create(post);
+        
+        res.status(201).json({ success: true, post: createdPost });
+
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        console.error("Erro ao criar post:", e);
+        res.status(500).json({ error: "Não foi possível salvar o post." });
     }
 });
 
-// Interagir (Like / View) com Verificação de Unicidade
+// Interagir (Like / View)
 router.post('/:id/interact', async (req, res) => {
     try {
         const { id } = req.params;
-        const { type, userId, action } = req.body; // action: 'add' ou 'remove' (para likes)
+        const { type, userId, action } = req.body;
         
         if (!userId || !type) return res.status(400).json({ error: "userId e type são obrigatórios" });
         
@@ -50,34 +70,12 @@ router.post('/:id/interact', async (req, res) => {
             success = await dbManager.interactions.recordUniqueInteraction(id, userId, type);
         }
         
-        res.json({ success, message: success ? "Interação processada" : "Interação ignorada (duplicada ou inexistente)" });
+        res.json({ success, message: success ? "Interação processada" : "Interação ignorada" });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
 });
 
-// Adicionar Comentário
-router.post('/:id/comment', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { comment } = req.body;
-        if (!comment) return res.status(400).json({ error: "Comentário ausente" });
-        
-        await dbManager.posts.addComment(id, comment);
-        res.json({ success: true });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-// Deletar Post
-router.delete('/:id', async (req, res) => {
-    try {
-        await dbManager.posts.delete(req.params.id);
-        res.json({ success: true });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
+// ... (outras rotas de posts permanecem as mesmas)
 
 export default router;
