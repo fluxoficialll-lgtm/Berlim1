@@ -152,15 +152,19 @@ export const ProductDetailsV2: React.FC = () => {
           onMediaClick={openLightbox}
         />
         <div className="details-wrapper">
-          <ProductInfo 
-            title={item.title}
-            price={item.price}
-            location={item.location}
-            category={item.category}
-            timestamp={item.timestamp}
-          />
+          <div className="detail-card product-info-card">
+            <ProductInfo 
+              title={item.title}
+              price={item.price}
+              location={item.location}
+              category={item.category}
+              timestamp={item.timestamp}
+            />
+          </div>
           <ProductSellerCard sellerName={item.sellerName || 'Vendedor'} sellerAvatar={item.sellerAvatar} onClick={navigateToStore} />
-          <ProductDescription description={item.description} />
+          <div className="detail-card product-description-card">
+            <ProductDescription description={item.description} />
+          </div>
           <button className="qa-trigger-btn" onClick={openComments}>
             <span className="font-bold text-sm"><i className="fa-regular fa-comments mr-2 text-[#00c2ff]"></i> Perguntas ({questions.length})</span>
             <i className="fa-solid fa-chevron-right text-xs"></i>
