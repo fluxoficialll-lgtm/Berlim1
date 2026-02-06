@@ -1,8 +1,6 @@
 
 import { Post, PaginatedResponse } from '../../../types';
 import { API_BASE } from '../../../apiConfig';
-import { db } from '../../../database';
-import { sqlite } from '../../../database/engine';
 import { PostUtils } from './PostUtils';
 
 const API_URL = `${API_BASE}/api/posts`;
@@ -20,17 +18,18 @@ export const PostQueryService = {
             });
             clearTimeout(timeoutId);
             
-            if (!response.ok) throw new Error("Server error");
+            if (!response.ok) {
+              console.error("Failed to fetch feed with status:", response.status);
+              return { data: [], nextCursor: undefined };
+            }
+
             const data = await response.json();
             const sanitized = (data.data || []).map(PostUtils.sanitizePost);
 
-            if (sanitized.length > 0) {
-                sqlite.upsertItems('posts', sanitized);
-            }
-
             return { data: sanitized, nextCursor: data.nextCursor };
         } catch (e) {
-            return { data: db.posts.getAll().map(PostUtils.sanitizePost), nextCursor: undefined };
+            console.error("Failed to fetch feed:", e);
+            return { data: [], nextCursor: undefined };
         }
     },
 
@@ -38,31 +37,45 @@ export const PostQueryService = {
      * Realiza busca global por texto ou usuário.
      */
     async searchPosts(query: string): Promise<Post[]> {
+        if (!query.trim()) return [];
         try {
             const response = await fetch(`${API_URL}/search?q=${encodeURIComponent(query)}`);
             if (response.ok) {
                 const data = await response.json();
-                const sanitized = (data.data || []).map(PostUtils.sanitizePost);
-                if (sanitized.length > 0) sqlite.upsertItems('posts', sanitized);
-                return sanitized;
+                return (data.data || []).map(PostUtils.sanitizePost);
             }
-        } catch (e) {}
-        
-        const term = query.toLowerCase().trim();
-        if (!term) return [];
-        return db.posts.getAll()
-            .filter(p => (p.text?.toLowerCase().includes(term) || p.username?.toLowerCase().includes(term)) && !p.video)
-            .map(PostUtils.sanitizePost);
+            return [];
+        } catch (e) {
+            console.error("Failed to search posts:", e);
+            return [];
+        }
     },
 
-    getPostById(id: string): Post | undefined {
-        const post = db.posts.findById(id);
-        return post ? PostUtils.sanitizePost(post) : undefined;
+    async getPostById(id: string): Promise<Post | undefined> {
+        try {
+            const response = await fetch(`${API_URL}/${id}`);
+            if (!response.ok) {
+                return undefined;
+            }
+            const post = await response.json();
+            return post ? PostUtils.sanitizePost(post) : undefined;
+        } catch (e) {
+            console.error(`Failed to fetch post ${id}:`, e);
+            return undefined;
+        }
     },
 
-    getUserPosts(authorId: string): Post[] {
-        return db.posts.getAll()
-            .filter(p => p.authorId === authorId)
-            .map(PostUtils.sanitizePost);
+    async getUserPosts(authorId: string): Promise<Post[]> {
+        try {
+            const response = await fetch(`${API_URL}/user/${authorId}`);
+            if (!response.ok) {
+                return [];
+            }
+            const data = await response.json();
+            return (data.data || []).map(PostUtils.sanitizePost);
+        } catch (e) {
+            console.error(`Failed to fetch posts for user ${authorId}:`, e);
+            return [];
+        }
     }
 };

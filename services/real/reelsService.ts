@@ -1,83 +1,66 @@
 import { Post } from '../../types';
-import { db } from '@/database';
 import { recommendationService } from '../recommendationService';
 import { chatService } from '../chatService';
-import { adService } from '../adService';
 import { postService } from '../postService';
 import { PostMetricsService } from './PostMetricsService';
 import { API_BASE } from '../../apiConfig';
-import { sqlite } from '../../database/engine';
 
-export const reelsService = {
-  fetchReels: async (): Promise<void> => {
+const API_URL = `${API_BASE}/api/posts`;
+
+// Helper function to fetch and filter reels
+const fetchAndFilterReels = async (url: string, userEmail?: string, allowAdultContent: boolean = false): Promise<Post[]> => {
     try {
-        const response = await fetch(`${API_BASE}/api/posts?limit=50&type=video`);
-        if (response.ok) {
-            const data = await response.json();
-            const posts = data.data || [];
-            const videos = posts.filter((p: any) => p.type === 'video');
-            
-            // HYDRATION: Save reels to cache
-            if (videos.length > 0) {
-                sqlite.upsertItems('posts', videos);
+        const response = await fetch(url);
+        if (!response.ok) {
+            console.error("Failed to fetch reels with status:", response.status);
+            return [];
+        }
+        const data = await response.json();
+        let videos = (data.data || []).filter((p: any) => p.type === 'video');
+
+        if (!allowAdultContent) {
+            videos = videos.filter((p: Post) => !p.isAdultContent);
+        }
+
+        if (userEmail) {
+            const blockedIds = chatService.getBlockedIdentifiers(userEmail);
+            if (blockedIds.size > 0) {
+                videos = videos.filter((p: Post) => {
+                    const username = String(p.username || "").replace('@', '').toLowerCase();
+                    return !blockedIds.has(username);
+                });
             }
         }
+
+        return videos.sort((a: Post, b: Post) => (b.timestamp || 0) - (a.timestamp || 0));
     } catch (e) {
-        console.warn("Reels fetch failed, using local cache");
+        console.warn("Reels fetch failed:", e);
+        return [];
     }
+};
+
+export const reelsService = {
+  getReels: async (userEmail?: string, allowAdultContent: boolean = false): Promise<Post[]> => {
+    return fetchAndFilterReels(`${API_URL}?type=video&limit=50`, userEmail, allowAdultContent);
   },
 
-  getReels: (userEmail?: string, allowAdultContent: boolean = false): Post[] => {
-    const allPosts = db.posts.getAll();
-    let videos = allPosts.filter(p => p && p.type === 'video');
-
-    if (!allowAdultContent) {
-        videos = videos.filter(p => !p.isAdultContent);
-    }
-
-    if (userEmail) {
-        const blockedIds = chatService.getBlockedIdentifiers(String(userEmail));
-        if (blockedIds.size > 0) {
-            videos = videos.filter(p => {
-                const username = String(p.username || "");
-                const handle = username.replace('@', '').toLowerCase();
-                return !blockedIds.has(username) && !blockedIds.has(handle);
-            });
-        }
-    }
-
-    return videos.sort((a, b) => b.timestamp - a.timestamp);
+  getReelsByAuthor: async (authorId: string, userEmail?: string, allowAdultContent: boolean = false): Promise<Post[]> => {
+    return fetchAndFilterReels(`${API_URL}/user/${authorId}?type=video`, userEmail, allowAdultContent);
   },
 
-  getReelsByAuthor: (authorId: string, allowAdultContent: boolean = false): Post[] => {
-    const allPosts = db.posts.getAll();
-    let videos = allPosts.filter(p => p && p.type === 'video' && p.authorId === authorId);
-    if (!allowAdultContent) {
-        videos = videos.filter(p => !p.isAdultContent);
-    }
-    return videos.sort((a, b) => b.timestamp - a.timestamp);
-  },
-
-  searchReels: (query: string, category: string, userEmail?: string): Post[] => {
-      const allPosts = db.posts.getAll();
-      let videos = allPosts.filter(p => p && p.type === 'video');
-      const term = String(query || "").toLowerCase().trim();
-
-      return videos.filter(reel => {
-          if (term) {
-              return String(reel.text || "").toLowerCase().includes(term) || 
-                     String(reel.username || "").toLowerCase().includes(term);
-          }
-          return true;
-      });
+  searchReels: async (query: string, userEmail?: string, allowAdultContent: boolean = false): Promise<Post[]> => {
+    const term = query.toLowerCase().trim();
+    if (!term) return [];
+    return fetchAndFilterReels(`${API_URL}/search?q=${encodeURIComponent(term)}&type=video`, userEmail, allowAdultContent);
   },
 
   uploadVideo: async (file: File): Promise<string> => {
-      // Mock/Real upload implementation
+      // This should be a real upload to your backend or cloud storage.
+      // For now, it returns a local blob URL as a placeholder.
       return URL.createObjectURL(file);
   },
 
-  addReel: async (reel: Post) => {
+  addReel: async (reel: Partial<Post>) => {
     await postService.addPost(reel);
   },
 
